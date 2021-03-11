@@ -71,6 +71,31 @@ impl Player {
 }
 
 
+impl Clone for Player {
+    fn clone(&self) -> Self {
+        Player {
+            id: self.id,
+            world_time: self.world_time,
+            group_id: self.group_id,
+            x: self.x,
+            y: self.y,
+            heading: self.heading,
+            lean: self.lean,
+            road_position: self.road_position,
+            distance: self.distance,
+            time: self.time,
+            laps: self.laps,
+            speed: self.speed,
+            climbing: self.climbing,
+            cadence: self.cadence,
+            heartrate: self.heartrate,
+            power: self.power,
+            power_up: self.power_up
+        }
+    }
+}
+
+
 pub enum ZwiftMessage<'a> {
     FromServer(&'a[u8]),
     ToServer(&'a[u8])
@@ -178,5 +203,13 @@ mod tests {
         let message = ZwiftMessage::ToServer(&packet_payload);
         let players = message.get_players().unwrap();
         assert_eq!(players.len(), 1);
+    }
+
+    #[test]
+    fn clone_player() {
+        let packet_payload = hex!("0686a9010008011086d30618e1a6fbcce80520ab023a6e0886d30610e1a6fbcce8051800208fac3a2800300040f4fa860548005000584f600068cbd5aa0170c0843d7800800100980195809808a0018f808008a80100b80100c00100cd01ae378847d50119191a46dd01a0d52ec7e00186d306e80100f80100950200000000980206b002001f403176");
+        let message = ZwiftMessage::ToServer(&packet_payload);
+        let player = message.get_players().unwrap().pop().unwrap();
+        let player_copy = player.clone();
     }
 }
