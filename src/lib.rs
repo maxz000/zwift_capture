@@ -9,25 +9,27 @@ use serde::{Serialize,Deserialize};
 use crate::zwift_messages::{ServerToClient, ClientToServer};
 
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Player {
     pub id: i32,
-    pub world_time: i64, // ms
+    pub world_time: i64, // millis
     pub group_id: i32,
 
-    // in game position coordinates, cm?
-    pub x: f32,
-    pub y: f32,
+    // in game position coordinates, m
+    pub x: f64,
+    pub y: f64,
 
     pub heading: i64,
     pub lean: i32,
 
     pub road_position: i32, // ???
+
+    pub speed: f64, // m per sec
+
     pub distance: i32, // m
     pub time: i32, // sec
 
     pub laps: i32,
-    pub speed: i32, // mm per hour
     pub climbing: i32, // m
 
     pub cadence: i32, // rpm
@@ -45,8 +47,9 @@ impl Player {
             world_time: player_state.get_worldTime(),
             group_id: player_state.get_groupId(),
 
-            x: player_state.get_x(),
-            y: player_state.get_y(),
+            // in game position coordinates, cm to m?
+            x: player_state.get_x() as f64 / 100.,
+            y: player_state.get_y() as f64 / 100.,
 
             heading: player_state.get_heading(),
             lean: player_state.get_lean(),
@@ -56,7 +59,8 @@ impl Player {
             time: player_state.get_time(),
 
             laps: player_state.get_laps(),
-            speed: player_state.get_speed(), // sometimes it has weird values for, near 1000 kmh
+            // orginal mm per hour?
+            speed: player_state.get_speed() as f64 / 1000. / 60. / 60. , // sometimes it has weird values for, near 1000 kmh
             climbing: player_state.get_climbing(),
 
             // it too, over 150+ rpm
@@ -66,31 +70,6 @@ impl Player {
             power: player_state.get_power(),
 
             power_up: player_state.get_f20() & 0xf
-        }
-    }
-}
-
-
-impl Clone for Player {
-    fn clone(&self) -> Self {
-        Player {
-            id: self.id,
-            world_time: self.world_time,
-            group_id: self.group_id,
-            x: self.x,
-            y: self.y,
-            heading: self.heading,
-            lean: self.lean,
-            road_position: self.road_position,
-            distance: self.distance,
-            time: self.time,
-            laps: self.laps,
-            speed: self.speed,
-            climbing: self.climbing,
-            cadence: self.cadence,
-            heartrate: self.heartrate,
-            power: self.power,
-            power_up: self.power_up
         }
     }
 }
