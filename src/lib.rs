@@ -152,6 +152,12 @@ impl ZwiftCapture<Capture<Active>> {
         let _ = capture.filter("udp port 3022").unwrap();
         ZwiftCapture { capture }
     }
+
+    pub fn from_device(device: Device) -> Self {
+        let mut capture = device.open().unwrap();
+        let _ = capture.filter("udp port 3022").unwrap();
+        ZwiftCapture { capture }
+    }
 }
 
 impl ZwiftCapture<Capture<Offline>> {
