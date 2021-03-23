@@ -37,7 +37,8 @@ pub struct Player {
     pub power: i32, // watts
 
     // 15 - None, 0 - feather, 1 - draft, 5 - aero
-    pub power_up: i32
+    pub power_up: i32,
+    pub watching_rider_id: i32
 }
 
 impl Player {
@@ -69,7 +70,8 @@ impl Player {
             heartrate: player_state.get_heartrate(),
             power: player_state.get_power(),
 
-            power_up: player_state.get_f20() & 0xf
+            power_up: player_state.get_f20() & 0xf,
+            watching_rider_id: player_state.get_watchingRiderId()
         }
     }
 }
@@ -82,25 +84,39 @@ pub enum ZwiftMessage<'a> {
 
 impl<'a> ZwiftMessage<'a> {
     pub fn get_players(&self) -> Option<Vec<Player>> {
-        match self {
+        return match self {
             ZwiftMessage::FromServer(payload) => {
                 if let Ok(message) = ServerToClient::parse_from_bytes(payload) {
-                    return Some(message.player_states.iter()
+                    Some(message.player_states.iter()
                         .map(|data| { Player::from(data) })
-                        .collect());
+                        .collect())
+                } else {
+                    Some(vec![])
                 }
             },
             ZwiftMessage::ToServer(payload) => {
                 // looks like protobuf message starts after X bytes with 0x8 as first byte
                 // first byte seems to be used as offset index
-                let offset = (payload[0] - 1) as usize;
+                let mut offset = (payload[0] - 1) as usize;
                 let limit = (payload.len() - 4) as usize;
+                if offset >= limit {
+                    for (ix, &byte) in payload.iter().enumerate() {
+                        if byte == 0x8 as u8 {
+                            offset = ix;
+                            break
+                        } else if ix == limit {
+                            offset = 0;
+                            break
+                        }
+                    }
+                }
                 if let Ok(message) = ClientToServer::parse_from_bytes(&payload[offset..limit]) {
-                    return Some(vec![Player::from(message.get_state())]);
+                    Some(vec![Player::from(message.get_state())])
+                } else {
+                    Some(vec![])
                 }
             }
         }
-        None
     }
 }
 
