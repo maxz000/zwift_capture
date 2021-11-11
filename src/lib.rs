@@ -156,6 +156,17 @@ impl<T: Activated> ZwiftCapture<Capture<T>> {
         }
         None
     }
+
+    pub fn print_stat(&mut self) {
+        match self.capture.stats() {
+            Ok(stat) => {
+                println!("Stats: {:?}", stat);
+            }
+            Err(error) => {
+                println!("Stats error: {:?}", error);
+            }
+        };
+    }
 }
 
 impl<T: Activated> Iterator for ZwiftCapture<Capture<T>> {
