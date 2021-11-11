@@ -131,25 +131,25 @@ pub struct ZwiftCapture<T> {
 impl<T: Activated> ZwiftCapture<Capture<T>> {
     pub fn next_payload(&mut self) -> Option<ZwiftMessage> {
         match self.capture.next() {
-            Ok(packet) => return match SlicedPacket::from_ethernet(packet.data) {
-                Ok(parsed) => match parsed.transport {
-                    Some(TransportSlice::Udp(u)) => {
-                        let source_port = u.source_port();
-                        if source_port == 3022 {
-                            Some(ZwiftMessage::FromServer(parsed.payload))
-                        } else {
-                            Some(ZwiftMessage::ToServer(parsed.payload))
+            Ok(packet) => {
+                return match SlicedPacket::from_ethernet(packet.data) {
+                    Ok(parsed) => match parsed.transport {
+                        Some(TransportSlice::Udp(u)) => {
+                            let source_port = u.source_port();
+                            if source_port == 3022 {
+                                Some(ZwiftMessage::FromServer(parsed.payload))
+                            } else {
+                                Some(ZwiftMessage::ToServer(parsed.payload))
+                            }
                         }
-                    }
+                        _ => Some(ZwiftMessage::InvalidMessage(parsed.payload)),
+                    },
                     _ => {
-                        Some(ZwiftMessage::InvalidMessage(parsed.payload))
+                        println!("failed to parse");
+                        Some(ZwiftMessage::InvalidMessage(&[]))
                     }
-                },
-                _ => {
-                    println!("failed to parse");
-                    Some(ZwiftMessage::InvalidMessage(&[]))
                 }
-            },
+            }
             Err(error) => {
                 println!("Error: {:?}", error);
             }
