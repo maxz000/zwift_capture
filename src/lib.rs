@@ -165,13 +165,13 @@ impl ZwiftCapture<Capture<Active>> {
     pub fn new() -> Self {
         let main_device = Device::lookup().unwrap();
         let mut capture = main_device.open().unwrap();
-        let _ = capture.filter("udp port 3022").unwrap();
+        let _ = capture.filter("udp port 3022", true).unwrap();
         ZwiftCapture { capture }
     }
 
     pub fn from_device(device: Device) -> Self {
         let mut capture = device.open().unwrap();
-        let _ = capture.filter("udp port 3022").unwrap();
+        let _ = capture.filter("udp port 3022", true).unwrap();
         ZwiftCapture { capture }
     }
 }
@@ -179,7 +179,7 @@ impl ZwiftCapture<Capture<Active>> {
 impl ZwiftCapture<Capture<Offline>> {
     pub fn from_file(path: &Path) -> Self {
         let mut capture = Capture::from_file(path).unwrap();
-        let _ = capture.filter("udp port 3022").unwrap();
+        let _ = capture.filter("udp port 3022", false).unwrap();
         ZwiftCapture { capture }
     }
 }
