@@ -1,13 +1,12 @@
 pub mod zwift_messages;
 
-use std::path::Path;
-use pcap::{Device,Capture,Active,Offline,Activated};
-use etherparse::{SlicedPacket,TransportSlice};
+use etherparse::{SlicedPacket, TransportSlice};
+use pcap::{Activated, Active, Capture, Device, Offline};
 use protobuf::Message;
-use serde::{Serialize,Deserialize};
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 
-use crate::zwift_messages::{ServerToClient, ClientToServer};
-
+use crate::zwift_messages::{ClientToServer, ServerToClient};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Player {
@@ -27,18 +26,18 @@ pub struct Player {
     pub speed: f64, // m per sec
 
     pub distance: i32, // m
-    pub time: i32, // sec
+    pub time: i32,     // sec
 
     pub laps: i32,
     pub climbing: i32, // m
 
-    pub cadence: i32, // rpm
+    pub cadence: i32,   // rpm
     pub heartrate: i32, // bpm
-    pub power: i32, // watts
+    pub power: i32,     // watts
 
     // 15 - None, 0 - feather, 1 - draft, 5 - aero
     pub power_up: i32,
-    pub watching_rider_id: i32
+    pub watching_rider_id: i32,
 }
 
 impl Player {
@@ -61,7 +60,7 @@ impl Player {
 
             laps: player_state.get_laps(),
             // orginal mm per hour?
-            speed: player_state.get_speed() as f64 / 1000. / 60. / 60. , // sometimes it has weird values for, near 1000 kmh
+            speed: player_state.get_speed() as f64 / 1000. / 60. / 60., // sometimes it has weird values for, near 1000 kmh
             climbing: player_state.get_climbing(),
 
             // it too, over 150+ rpm
@@ -71,15 +70,15 @@ impl Player {
             power: player_state.get_power(),
 
             power_up: player_state.get_f20() & 0xf,
-            watching_rider_id: player_state.get_watchingRiderId()
+            watching_rider_id: player_state.get_watchingRiderId(),
         }
     }
 }
 
-
 pub enum ZwiftMessage<'a> {
-    FromServer(&'a[u8]),
-    ToServer(&'a[u8])
+    FromServer(&'a [u8]),
+    ToServer(&'a [u8]),
+    InvalidMessage(&'a [u8]),
 }
 
 impl<'a> ZwiftMessage<'a> {
@@ -87,13 +86,17 @@ impl<'a> ZwiftMessage<'a> {
         return match self {
             ZwiftMessage::FromServer(payload) => {
                 if let Ok(message) = ServerToClient::parse_from_bytes(payload) {
-                    Some(message.player_states.iter()
-                        .map(|data| { Player::from(data) })
-                        .collect())
+                    Some(
+                        message
+                            .player_states
+                            .iter()
+                            .map(|data| Player::from(data))
+                            .collect(),
+                    )
                 } else {
                     Some(vec![])
                 }
-            },
+            }
             ZwiftMessage::ToServer(payload) => {
                 // looks like protobuf message starts after X bytes with 0x8 as first byte
                 // first byte seems to be used as offset index
@@ -103,10 +106,10 @@ impl<'a> ZwiftMessage<'a> {
                     for (ix, &byte) in payload.iter().enumerate() {
                         if byte == 0x8 as u8 {
                             offset = ix;
-                            break
+                            break;
                         } else if ix == limit {
                             offset = 0;
-                            break
+                            break;
                         }
                     }
                 }
@@ -116,32 +119,39 @@ impl<'a> ZwiftMessage<'a> {
                     Some(vec![])
                 }
             }
-        }
+            ZwiftMessage::InvalidMessage(payload) => Some(vec![]),
+        };
     }
 }
 
-
-pub struct ZwiftCapture<T>
-{
-    capture: T
+pub struct ZwiftCapture<T> {
+    capture: T,
 }
 
 impl<T: Activated> ZwiftCapture<Capture<T>> {
     pub fn next_payload(&mut self) -> Option<ZwiftMessage> {
-        if let Ok(packet) = self.capture.next() {
-            if let Ok(parsed) = SlicedPacket::from_ethernet(packet.data) {
-
-                match parsed.transport {
+        match self.capture.next() {
+            Ok(packet) => return match SlicedPacket::from_ethernet(packet.data) {
+                Ok(parsed) => match parsed.transport {
                     Some(TransportSlice::Udp(u)) => {
                         let source_port = u.source_port();
-                        return if source_port == 3022 {
+                        if source_port == 3022 {
                             Some(ZwiftMessage::FromServer(parsed.payload))
                         } else {
                             Some(ZwiftMessage::ToServer(parsed.payload))
                         }
-                    },
-                    _ => {}
+                    }
+                    _ => {
+                        Some(ZwiftMessage::InvalidMessage(parsed.payload))
+                    }
+                },
+                _ => {
+                    println!("failed to parse");
+                    Some(ZwiftMessage::InvalidMessage(&[]))
                 }
+            },
+            Err(error) => {
+                println!("Error: {:?}", error);
             }
         }
         None
@@ -184,12 +194,11 @@ impl ZwiftCapture<Capture<Offline>> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
 
-    use hex_literal::hex;
     use crate::ZwiftMessage;
+    use hex_literal::hex;
 
     #[test]
     fn it_works_parse_from_server() {
